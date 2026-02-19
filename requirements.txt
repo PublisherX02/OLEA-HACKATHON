@@ -1,0 +1,6 @@
+langchain
+langchain-nvidia-ai-endpoints
+langchain-community
+chromadb
+sentence-transformers
+python-dotenv
