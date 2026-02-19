@@ -7,14 +7,15 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langchain.schema import Document
 from langchain.agents import AgentExecutor, create_react_agent, Tool
 from langchain.memory import ConversationBufferMemory
+from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
 
 # Load environment variables
 load_dotenv()
@@ -53,30 +54,84 @@ embeddings = HuggingFaceEmbeddings(
 )
 
 
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=config.chunk_size,
-    chunk_overlap=config.chunk_overlap,
-    length_function=len,
-    separators=["\n\n", "\n", " ", ""]
-)
 
-# Create Document objects
-Insurance_documents = [] # Placeholder: Documents will be loaded here later
-docs = [Document(page_content=doc) for doc in Insurance_documents] #documents and informations will e rovided later
-splits = text_splitter.split_documents(docs)
+def build_knowledge_base(data_dir: str = "./insurance_data") -> Optional[Any]:
+    """
+    Builds the vector knowledge base from PDF documents in the specified directory.
+    
+    Args:
+        data_dir (str): Path to the directory containing PDF files.
+        
+    Returns:
+        Optional[RetrievalQA]: Configured retriever object or None if failed/empty.
+    """
+    print(f"📂 Scanning directory: {data_dir}...")
+    
+    try:
+        # Check if directory exists
+        if not os.path.exists(data_dir):
+            print(f"⚠️ Directory {data_dir} does not exist. Creating it...")
+            os.makedirs(data_dir)
+            print(f"⚠️ Please Place PDF documents in {data_dir} and restart.")
+            return None
 
-print(f"✅ Split {len(docs)} documents into {len(splits)} chunks")
+        # Load documents
+        loader = DirectoryLoader(
+            data_dir,
+            glob="./*.pdf",
+            loader_cls=PyPDFLoader
+        )
+        docs = loader.load()
+        
+        if not docs:
+            print(f"⚠️ No PDF documents found in {data_dir}.")
+            return None
+            
+        print(f"✅ Loaded {len(docs)} documents.")
+        
+        # Split documents
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=config.chunk_size,
+            chunk_overlap=config.chunk_overlap,
+            length_function=len,
+            separators=["\n\n", "\n", " ", ""]
+        )
+        splits = text_splitter.split_documents(docs)
+        print(f"✅ Split documents into {len(splits)} chunks.")
+        
+        print("🧠 Building Vector DB...")
+        vectorstore = Chroma.from_documents(
+            documents=splits,
+            embedding=embeddings,
+            collection_name="imani_insurance_kb"
+        )
+        
+        retriever = vectorstore.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": config.k_documents}
+        )
+        
+        print("✅ Vector Knowledge Base built successfully!")
+        return retriever
 
-vectorstore = Chroma.from_documents(
-    documents=splits,
-    embedding=embeddings,
-    collection_name="banking_knowledge"
-)
+    except Exception as e:
+        print(f"❌ Error building knowledge base: {str(e)}")
+        return None
 
-retriever = vectorstore.as_retriever(
-    search_type="similarity",
-    search_kwargs={"k": config.k_documents}
-)
+# Initialize Retriever
+retriever = build_knowledge_base()
+
+# Handle case where retriever is None (no docs found)
+if retriever is None:
+    print("⚠️ RAG system initialized without knowledge base (Active Agent Mode Only)")
+    # Create a dummy retriever for code compatibility if needed, 
+    # or ensure rag_chain handles None retriever gracefully. 
+    # For now, we'll initialize an empty vectorstore to prevent crashes.
+    empty_vectorstore = Chroma(
+        embedding_function=embeddings,
+        collection_name="empty_placeholder"
+    )
+    retriever = empty_vectorstore.as_retriever(search_kwargs={"k": 1})
 
 Insurance_prompt_template = """
 You are an expert Insurance...
