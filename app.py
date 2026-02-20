@@ -11,42 +11,58 @@ st.set_page_config(
 # Custom CSS for WhatsApp-like styling (Dark-Mode Proof)
 st.markdown("""
 <style>
-    /* Force WhatsApp beige background */
-    .stApp, .main {
-        background-color: #e5ddd5 !important;
+    /* WhatsApp Web Background Pattern */
+    .stApp {
+        background-color: #efeae2 !important;
+        background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png") !important;
+        background-repeat: repeat !important;
+        background-blend-mode: multiply;
     }
     
+    /* Hide Streamlit Header */
+    header {visibility: hidden;}
+    
     /* Make all chat text Dark/Black */
-    .stChatMessage p, .stChatMessage div {
+    [data-testid="stChatMessage"] {
+        color: #111111 !important;
+    }
+    [data-testid="stChatMessage"] * {
         color: #111111 !important;
     }
 
     /* Style the chat bubbles */
-    .stChatMessage {
-        padding: 1rem !important;
-        border-radius: 10px !important;
-        margin-bottom: 10px !important;
-        border: 1px solid #d1d1d1 !important;
+    [data-testid="stChatMessage"] {
+        padding: 8px 12px !important;
+        border-radius: 7.5px !important;
+        margin-bottom: 8px !important;
+        box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
+        max-width: 65% !important;
+        clear: both;
+        display: inline-block;
+        width: max-content;
     }
     
-    /* User Message Bubble (Green) */
+    /* User Message Bubble (Green, pushed to right) */
     [data-testid="stChatMessage"]:nth-child(odd) {
         background-color: #dcf8c6 !important;
-        border-top-right-radius: 0 !important;
-        margin-left: 20%; /* Push user messages to the right */
+        border-top-right-radius: 0px !important;
+        float: right;
+        margin-left: auto !important;
     }
     
-    /* Assistant Message Bubble (White) */
+    /* Assistant Message Bubble (White, pushed to left) */
     [data-testid="stChatMessage"]:nth-child(even) {
         background-color: #ffffff !important;
-        border-top-left-radius: 0 !important;
-        margin-right: 20%; /* Push bot messages to the left */
+        border-top-left-radius: 0px !important;
+        float: left;
+        margin-right: auto !important;
     }
     
-    /* Fix Input Box */
+    /* Fix Input Box to look like WhatsApp bottom bar */
     .stChatInputContainer {
-        background-color: #ffffff !important;
-        border-radius: 20px !important;
+        background-color: #f0f2f5 !important;
+        padding: 10px !important;
+        border-radius: 24px !important;
     }
 </style>
 """, unsafe_allow_html=True)

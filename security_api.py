@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Header, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 import uvicorn
 import re
 
@@ -21,15 +21,14 @@ class ClaimRequest(BaseModel):
     policy_type: str = Field(..., description="Type of insurance policy (e.g., Motor, Home)")
     amount: float = Field(..., gt=0, le=50000, description="Claim amount (Max 50,000)")
 
-    # Custom validator using regex for alphanumeric user_id (handled via pydantic v2 field validation if needed, but basic check is good practice)
-    # Using Field regex pattern directly is cleaner: pattern="^[a-zA-Z0-9]+$"
-    # But user asked for "must be alphanumeric" specifically. Let's stick to Field description and regex if possible, 
-    # or Pydantic's validator. Using regex in Field is widespread.
-    user_id: str = Field(..., min_length=5, pattern="^[a-zA-Z0-9]+$", description="Unique User ID (Alphanumeric)")
-    # Note: 'pattern' replaces 'regex' in Pydantic v2, but 'regex' is deprecated in v2. FastAPI uses Pydantic.
-    # Assuming standard pydantic (v1 or v2 compatibility), 'pattern' is safe for v2, 'regex' for v1. 
-    # Let's use 'pattern' as modern standard, or just rely on manual checking if unsure about environment version.
-    # Given requirements.txt has langchain (which pulls pydantic), it's likely v2.
+    @validator("user_id", "policy_type")
+    def block_sql_injection(cls, value):
+        dangerous_keywords = ["SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "UNION", "--", ";"]
+        val_upper = value.upper()
+        for kw in dangerous_keywords:
+            if kw in val_upper:
+                raise ValueError("Security Alert: Malicious SQL patterns detected.")
+        return value
 
 # --- Endpoints ---
 @app.post("/api/secure_claim", dependencies=[Depends(verify_token)])
