@@ -348,3 +348,9 @@ chatbot = InsuranceChatbot(agent_executor, rag_chain)
 
 
 
+
+def analyze_damage_image(base64_img: str, language: str) -> str:
+    """
+    Simulates Vision AI damage assessment.
+    """
+    return f"🔍 [Vision AI Assessment]: Analysis complete for the uploaded image. Expected repair cost is within standard limits. Fraud probability: Low (4%). Processing in {language}..."
