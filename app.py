@@ -23,6 +23,40 @@ def text_to_audio_autoplay(text, lang='ar'):
     except Exception as e:
         return ""
 
+def correct_insurance_stt(raw_text):
+    """
+    Hackathon God-Mode : Intercepte les erreurs du Speech-to-Text Google
+    et les force dans le vocabulaire de l'assurance tunisienne.
+    """
+    # Dictionnaire de correction : "Ce que Google entend" -> "Ce que le client voulait dire"
+    corrections = {
+        "kahraba": "karhba",        # Électricité -> Voiture
+        "sayara": "karhba",         # Voiture (MSA) -> Voiture (Tounsi)
+        "hadith": "accident",       # Histoire/Accident (MSA) -> Accident
+        "hades": "accident",
+        "aksidon": "accident",
+        "taamin": "assurance",      # Assurance (MSA) -> Assurance
+        "ta'min": "assurance",
+        "zojaj": "bllar",           # Verre (MSA) -> Vitre/Pare-brise (Tounsi)
+        "mraya": "rétroviseur",     # Miroir -> Rétroviseur
+        "is3af": "dépannage",       # Secours -> Dépannage
+        "moteur": "moteur",
+        "parchoc": "parchoc",
+        "dharba": "accident",       # Coup -> Accident
+        "كهرباء": "كرهبة",          # Fixes Arabic Kahraba -> Karhba
+        "كهراباء": "كرهبة",
+        "حادث": "كسيدة"             # Optional: MSA to Tounsi
+    }
+    
+    text_lower = raw_text.lower()
+    
+    # Remplacement ultra-rapide
+    for wrong, right in corrections.items():
+        text_lower = text_lower.replace(wrong, right)
+        
+    return text_lower
+
+
 def transcribe_audio(audio_bytes, language_code="ar-TN"):
     """Converts spoken audio into text with noise reduction."""
     recognizer = sr.Recognizer()
@@ -39,17 +73,9 @@ def transcribe_audio(audio_bytes, language_code="ar-TN"):
             raw_text = recognizer.recognize_google(audio_data, language=language_code)
             
             # --- HACKATHON STT INTERCEPTOR (Dialect Fixes) ---
-            corrections = {
-                "كهرباء": "كرهبة",    # Fixes Arabic Kahraba -> Karhba
-                "كهراباء": "كرهبة",
-                "kahraba": "karhba",  # Fixes Latin
-                "accident": "aksidon",
-                "حادث": "كسيدة"       # Optional: MSA to Tounsi
-            }
-            for wrong, right in corrections.items():
-                raw_text = raw_text.replace(wrong, right)
+            final_text = correct_insurance_stt(raw_text)
                 
-            return raw_text
+            return final_text
             
     # ENHANCEMENT: Advanced error catching from notebook
     except sr.UnknownValueError:
@@ -72,7 +98,8 @@ st.markdown("""
         background-blend-mode: multiply;
     }
     .block-container { padding-top: 0rem !important; padding-bottom: 5rem !important; }
-    header {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    header {background: transparent !important;}
     [data-testid="stChatMessage"] { color: #111111 !important; }
     [data-testid="stChatMessage"] * { color: #111111 !important; }
     [data-testid="stChatMessage"][data-baseweb="block"]:nth-child(odd) {
@@ -100,6 +127,7 @@ with st.sidebar:
     st.header("📎 Attachments & Voice")
     # Feature 2: Voice Microphone
     audio_bytes = st.audio_input("🎙️ Record Voice Note:")
+    st.caption("💡 *Astuce : Essayez de parler en arabe le plus possible pour une meilleure reconnaissance.*")
     
     # Feature 1: Vision AI
     st.write("📸 **Upload Crash Photo:**")
