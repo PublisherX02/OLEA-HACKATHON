@@ -7,11 +7,11 @@ numpy==1.26.4
 scikit-learn==1.3.2
 requests
 joblib
-langchain
+langchain==0.2.14
 langchain-nvidia-ai-endpoints
-langchain-community
+langchain-community==0.2.12
 chromadb
 sentence-transformers
 python-dotenv
 pypdf
-langchain-text-splitters
+langchain-text-splitters==0.2.2

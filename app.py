@@ -6,7 +6,7 @@ import base64
 import requests
 import os
 
-API_BASE_URL = os.environ.get("API_URL", "http://localhost:8000")
+API_URL = os.environ.get("API_URL", "http://localhost:8000")
 
 # --- VOICE ENGINE HELPER FUNCTIONS ---
 def text_to_audio_autoplay(text, lang='ar'):
@@ -134,7 +134,7 @@ with st.sidebar:
 
 # --- MAIN CHAT AREA ---
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Asslema! Bienvenue chez OLEA. Kifech najem n3awnek lyoum?"}]
+    st.session_state.messages = [{"role": "assistant", "content": "Asslema ! Ena Imani, l'assistante commerciale mta3 OLEA. Bch najem na3tik a7sen Pack Assurance 'Ala Kifak', nst7a9 chwaya ma3loumet: chnouwa ismek, 9adeh dakhel fi l'3am (Revenu Annuel), 9adeh andek sghar w kbar fi kfaltek, 9adeh andek men karhba, w est-ce que 3malt des sinistres (accidents) 9bal ?"}]
 
 # Render History
 for message in st.session_state.messages:
@@ -177,7 +177,7 @@ if prompt:
             payload = {"message": prompt, "language": selected_language}
             
             # Send to FastAPI Backend
-            response = requests.post(f"{API_BASE_URL}/api/chat", json=payload, timeout=60)
+            response = requests.post(f"{API_URL}/api/chat", json=payload, timeout=60)
             response.raise_for_status()
             bot_response = response.json().get("response", "No response generated.")
             
