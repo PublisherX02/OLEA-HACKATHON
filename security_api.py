@@ -138,7 +138,11 @@ async def chat_endpoint(request: ChatRESTRequest):
         response_data = chatbot.chat(request.message, language=request.language)
         return {"response": response_data.get("response", "Error processing request")}
     except Exception as e:
+        err = str(e).lower()
         logger.error(f"Chat API Error: {str(e)}")
+        if "iteration limit" in err or "time limit" in err or "max_iterations" in err:
+            friendly = "⚠️ Imani n'a pas pu finir sa reflexion cette fois. Essayez de poser une question plus directe ou plus courte."
+            return {"response": friendly}
         raise HTTPException(status_code=500, detail=str(e))
 
 class ClientProfile(BaseModel):
