@@ -125,16 +125,11 @@ async def submit_secure_claim(request: ClaimRequest, raw_request: Request):
         "claim_id": claim_id
     }
 
-from main import chatbot, analyze_damage_image
+from main import chatbot
 
 class ChatRESTRequest(BaseModel):
     message: str
     language: str
-
-class VisionRESTRequest(BaseModel):
-    base64_img: str
-    language: str
-    filename: str = "unknown.jpg"
 
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRESTRequest):
@@ -144,16 +139,6 @@ async def chat_endpoint(request: ChatRESTRequest):
         return {"response": response_data.get("response", "Error processing request")}
     except Exception as e:
         logger.error(f"Chat API Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/vision")
-async def vision_endpoint(request: VisionRESTRequest):
-    """Processes Vision AI simulation."""
-    try:
-        assessment = analyze_damage_image(request.base64_img, request.language, request.filename)
-        return {"response": assessment}
-    except Exception as e:
-        logger.error(f"Vision API Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 class ClientProfile(BaseModel):
@@ -224,12 +209,15 @@ async def ml_predict_endpoint(profile: ClientProfile):
             "Accept": "application/json"
         }
         
-        prompt = f"""Tu es Imani, l'agent commercial de OLEA Tunisie.
-        Notre modèle ML haute précision vient de recommander le "Pack Assurance Numéro {prediction}" pour le client {client_name}.
-        Profil du client : {profile.Estimated_Annual_Income} TND de revenus, {profile.Adult_Dependents + profile.Child_Dependents} dépendants, {profile.Vehicles_on_Policy} véhicules sportifs/normaux, et {profile.Previous_Claims_Filed} sinistres récents.
+        prompt = f"""Tu es Imani, l'agent commercial dynamique et experte de OLEA Tunisie.
+        Le système vient de sélectionner le "Pack Assurance Numéro {prediction}" pour le client {client_name}.
+        Profil du client : {profile.Estimated_Annual_Income} TND de revenus, {profile.Adult_Dependents + profile.Child_Dependents} dépendants, {profile.Vehicles_on_Policy} véhicules, et {profile.Previous_Claims_Filed} sinistres.
         
-        Tâche : Explique de façon très enthousiaste en dialecte Tunisien (Tounsi avec alphabet latin) pourquoi ce Pack (Bundle {prediction}) est PARFAITEMENT adapté à sa situation spécifique de manière personnalisée.
-        Sois chaleureuse, convaincante et TRÈS brève (maximum 3 phrases). Ne mentionne pas le modèle ML, dis simplement "choisi pour toi".
+        Tâche : Explique en dialecte Tunisien (Tounsi - alphabet latin) pourquoi ce Pack (Bundle {prediction}) est PARFAITEMENT adapté à sa situation.
+        CONTRAINTE ABSOLUE : Utilise un ton commercial persuasif, insistant mais agréable ("persisting business tone").
+        Tu DOIS utiliser les détails de son profil (ses revenus, son nombre d'enfants/véhicules, ou son historique de sinistres) pour le convaincre que c'est le meilleur investissement pour SA sécurité financière.
+        Chaque discours doit être unique, ne génère pas de texte générique abrégé.
+        Sois convaincante et directe (maximum 4 phrases). Demande-lui à la fin s'il souhaite confirmer.
         """
         
         payload = {

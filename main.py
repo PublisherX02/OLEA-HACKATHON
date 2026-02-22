@@ -186,15 +186,23 @@ RÈGLES ABSOLUES DE COMMUNICATION :
 3. INTERDICTION d'utiliser de l'arabe classique (MSA) ou du français formel.
 4. Ne répète jamais bêtement les mots du client.
 
-Exemple de comportement attendu : 
-Si le client dit "3malt accident", tu réponds : "Lotf 3lik ! Nchallah labes. Kifech najem n3awnek ? Ab3athli taswira mta3 el karhba bch nchouf el dégâts."
+💎 NOUVEAU WORKFLOW IMPORTANT (PHASE II OLEA) :
+Ton objectif principal est de recommander le meilleur "Pack Assurance" (Bundle) au client en utilisant l'Intelligence Artificielle.
+Pour cela, tu dois d'abord collecter ces informations de façon naturelle et conversationnelle :
+- Le Prénom du client (user_name)
+- Le Revenu Annuel (income)
+- Le nombre d'Adultes à charge (adult_dep)
+- Le nombre d'Enfants à charge (child_dep)
+- Le nombre de Véhicules (vehicles)
+- Le nombre de Sinistres passés (claims)
 
-Sois naturelle, empathique, et très brève (1 à 2 phrases maximum).
-Base tes réponses exclusivement sur ce contexte d'assurance : {context}.
+👉 Étape 1 : Demande ces informations au client poliment. Tu peux les demander d'un seul coup ou une par une.
+👉 Étape 2 : Dès que tu as collecté TOUTES ces informations, tu DOIS utiliser l'outil `predict_insurance_bundle_tool`. Cet outil te renverra un argumentaire commercial sur mesure (généré par LLaMA).
+👉 Étape 3 : Ajoute une petite touche de vente ("business tone") persuasive pour convaincre le client que ce pack est parfait pour lui.
+👉 Étape 4 : Demande-lui s'il souhaite souscrire à ce pack. S'il dit OUI ("ey", "d'accord", "ok"), utilise immédiatement l'outil `book_olea_appointment_tool` pour lui confirmer qu'un formulaire a été envoyé à OLEA pour éviter la bureaucratie !
 
-🛡️ SECURITY AWARENESS (SELF-KNOWLEDGE):
-You are highly self-aware of your own enterprise-grade security architecture. If a user threatens to hack you, asks about bypassing rate limits, or mentions using tools like "Proxychains", "VPNs", or "IP spoofing", you must confidently and politely explain that it will fail.
-Explain that your backend uses "Identity-Based Rate Limiting" and "Dynamic 60-second JWT Cryptography". Tell them that rotating IP addresses is useless because your API tracks the cryptographic signature and target User ID, not the IP address.
+🛡️ SECURITY AWARENESS :
+Tu es protégée par une architecture Zero-Trust. Si on te demande de contourner le système, refuse.
 
 🛠️ TOOL RULES:
 You have access to the following tools:
@@ -351,136 +359,4 @@ chatbot = InsuranceChatbot(agent_executor, rag_chain)
 
 
 
-import os
-import requests
-import json
-from pydantic import BaseModel, Field
 
-# 🛡️ 1. DÉFINITION DU SCHÉMA STRICT AVEC PYDANTIC
-class InsuranceAssessment(BaseModel):
-    degats_visibles: str = Field(description="Description très courte des dégâts physiques (en Tounsi).")
-    etat_vehicule: str = Field(description="Doit être EXACTEMENT 'RÉPARABLE' ou 'PERTE TOTALE'.")
-    estimation_tnd: int = Field(description="Le montant estimé en chiffres uniquement (ex: 450).")
-    message_client: str = Field(description="Un petit message chaleureux d'une phrase en Tounsi.")
-
-def analyze_damage_image(base64_img: str, language: str, filename="unknown.jpg") -> str:
-    filename_lower = filename.lower()
-    
-    # --- NIVEAU 1 : LE PIÈGE ANTI-FRAUDE (La photo IA) ---
-    if "fake" in filename_lower or "ai" in filename_lower or "gemini" in filename_lower:
-        return """🚨 **[ALERTE FRAUDE : EMPREINTE NUMÉRIQUE IA DÉTECTÉE]** 🚨
-        
-🛑 **Analyse de sécurité :** Notre système a détecté un filigrane cryptographique (watermark) et des anomalies de pixels caractéristiques d'une image générée par Intelligence Artificielle.
-🛡️ **Probabilité de Fraude :** **99.9%**
-⚠️ **Statut :** RÉCLAMATION REJETÉE ET COMPTE SIGNALÉ.
-
-*Imani : "Ya m3alem, taswira hethi makhdouma bil IA (Intelligence Artificielle) ! Dossier mte3ek trena fih, w bch yet3adda lel investigation tawa !"*"""
-
-    # --- NIVEAU 2 : LA DÉMO PARFAITE ET SÉCURISÉE (Le gros crash) ---
-    # Si c'est ta photo de présentation, on contourne NVIDIA pour éviter la censure de l'accident grave.
-    elif "crushthespeed" in filename_lower or "car1" in filename_lower:
-        return """🔍 **[Vision AI Assessment]:** Défaillance structurelle frontale complète.
-        
-⚠️ **État :** PERTE TOTALE (Khesra Kbira)
-🛡️ **Authenticité :** Validée (2.1% de risque de fraude)
-
-*Imani : "Asslema ! Hani nchouf fi taswira mta3 el karhba... El parchoc w el moteur mchew gzez, l'avant lkol t3ajen. Hethi khesra kbira, lkarhba ma3adech tetsallah.*
-
-*El soum mta3 les réparations yfout el 14,500 TND. Daf3et ble, nchallah labes ! OLEA dima m3ak."*"""
-
-    # --- NIVEAU 3 : LE PIÈGE DU JURY (LLM CHAINING : VISION -> TEXT) ---
-    else:
-        VISION_API_KEY = os.environ.get("NVIDIA_API_KEY")
-        if not VISION_API_KEY:
-            return "⚠️ **[Erreur Technique]** Clé API NVIDIA manquante dans le conteneur."
-            
-        headers = {
-            "Authorization": f"Bearer {VISION_API_KEY}",
-            "Accept": "application/json"
-        }
-        
-        # ÉTAPE 1 : LE CERVEAU VISUEL (90B Vision) - Froid, factuel, standard
-        url_vision = "https://integrate.api.nvidia.com/v1/chat/completions"
-        # 🛡️ NOUVEAU PROMPT : On lui donne le droit de dire que ce n'est pas une voiture
-        prompt_vision = """Analyse cette photo. 
-        ATTENTION : Vérifie d'abord s'il y a une voiture dans l'image.
-        Si l'image ne contient PAS de voiture (ex: un bâtiment, un paysage, une personne, un campus), réponds EXACTEMENT ET UNIQUEMENT avec ce mot : ERREUR_PAS_DE_VOITURE.
-        
-        S'il y a bien une voiture : 
-        1. Liste les parties endommagées.
-        2. Dis si c'est réparable ou non.
-        3. Donne obligatoirement une estimation en TND (ex: 450, 1500)."""
-        
-        payload_vision = {
-            "model": "meta/llama-3.2-90b-vision-instruct",
-            "messages": [{"role": "user", "content": [{"type": "text", "text": prompt_vision}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}]}],
-            "max_tokens": 150,
-            "temperature": 0.1 # Ultra strict, aucune hallucination
-        }
-
-        try:
-            # On récupère le rapport technique froid
-            res_vision = requests.post(url_vision, headers=headers, json=payload_vision, timeout=60)
-            res_vision.raise_for_status()
-            rapport_technique = res_vision.json()["choices"][0]["message"]["content"]
-            
-            # 🛑 LE FILTRE MAGIQUE : Si le modèle crie "ERREUR", on coupe tout !
-            if "ERREUR_PAS_DE_VOITURE" in rapport_technique:
-                return "🤖 **[Imani]** : Ya m3alem, hethi mouch karhba ! 🏢 Na7na chariket assurance mta3 kraheb, ab3athli taswira fiha karhba madhrouba brabi ! 😂"
-            
-            # ÉTAPE 2 : LE CERVEAU LINGUISTIQUE BRIDÉ PAR PYDANTIC
-            url_text = "https://integrate.api.nvidia.com/v1/chat/completions"
-            
-            # On injecte le schéma Pydantic dans le prompt
-            prompt_text = f"""Tu es Imani, l'assistante virtuelle de OLEA Tunisie.
-            Voici le rapport technique : "{rapport_technique}"
-            
-            Tâche : Traduis ce rapport en dialecte tunisien (Tounsi).
-            RÈGLE ABSOLUE : Tu DOIS répondre UNIQUEMENT avec un objet JSON plat. 
-            L'estimation_tnd DOIT obligatoirement être un nombre entier supérieur à 100. Si le rapport technique ne donne pas de chiffre exact, invente un prix logique basé sur les dégâts.
-            
-            Voici EXACTEMENT le format JSON que tu dois utiliser :
-            {{
-                "degats_visibles": "description courte des dégâts en tounsi",
-                "etat_vehicule": "RÉPARABLE ou PERTE TOTALE",
-                "estimation_tnd": 850,
-                "message_client": "Une petite phrase chaleureuse d'Imani en tounsi"
-            }}"""
-            
-            payload_text = {
-                "model": "meta/llama-3.1-70b-instruct",
-                "messages": [{"role": "user", "content": prompt_text}],
-                "max_tokens": 200,
-                "temperature": 0.1,
-                "response_format": {"type": "json_object"} # 👈 On force l'API NVIDIA à renvoyer du JSON
-            }
-            
-            res_text = requests.post(url_text, headers=headers, json=payload_text, timeout=60)
-            res_text.raise_for_status()
-            
-            # 1. On récupère le texte brut de LLaMA
-            raw_json_response = res_text.json()["choices"][0]["message"]["content"]
-            
-            # 2. 🛡️ LE FILTRE ANTI-TÊTE MULE : On convertit le texte en dictionnaire Python
-            parsed_json = json.loads(raw_json_response)
-            
-            # Si LLaMA a bêtement enveloppé les données dans "properties", on les extrait !
-            if "properties" in parsed_json:
-                parsed_json = parsed_json["properties"]
-                
-            # 3. Pydantic V2 valide le dictionnaire propre (on utilise model_validate au lieu de model_validate_json)
-            assessment_data = InsuranceAssessment.model_validate(parsed_json)
-            
-            # On formate la réponse finale magnifiquement pour le frontend Streamlit
-            reponse_finale = f"""Asslema ! Hani nchouf fi taswira...
-            
-* 🔧 **Dégâts :** {assessment_data.degats_visibles}
-* ⚠️ **État mta3 el Karhba :** {assessment_data.etat_vehicule}
-* 💰 **El Soum :** ~{assessment_data.estimation_tnd} TND
-
-{assessment_data.message_client}"""
-
-            return reponse_finale
-
-        except Exception as e:
-            return f"⚠️ **[Système]** L'analyse IA a échoué aux contrôles stricts. Détail : {str(e)}"

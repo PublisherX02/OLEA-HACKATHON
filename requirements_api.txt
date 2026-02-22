@@ -14,3 +14,4 @@ chromadb
 sentence-transformers
 python-dotenv
 pypdf
+langchain-text-splitters
