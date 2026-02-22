@@ -177,7 +177,7 @@ if prompt:
             payload = {"message": prompt, "language": selected_language}
             
             # Send to FastAPI Backend
-            response = requests.post(f"{API_URL}/api/chat", json=payload, timeout=60)
+            response = requests.post(f"{API_URL}/api/chat", json=payload, timeout=180)
             response.raise_for_status()
             bot_response = response.json().get("response", "No response generated.")
             
