@@ -1,77 +1,71 @@
-# 🛡️ Project Imani: Zero-Trust Autonomous Insurance Agent
-Built for the OLEA Insurance Hackathon 2026
+# OLEA AI - Intelligent Insurance Advisor 🚀
 
-Project Imani is an enterprise-grade, localized AI insurance agent designed specifically for the North African market. It bridges the gap between state-of-the-art Generative AI and strict corporate cybersecurity compliance.
+Bienvenue dans le dépôt officiel de la solution **OLEA AI**, conçue spécifiquement pour la **Phase II du Hackathon DataQuest OLEA**. Ce projet représente une architecture MLOps complète, prête pour la production, intégrant un modèle de Machine Learning haute performance, une sécurité Zero-Trust et une expérience conversationnelle GenAI localisée.
 
-Imani isn't just a chatbot; she is a True Decoupled Microservice Architecture protected by a custom API Gateway, featuring Zero-Trust Identity verification, GDPR-compliant PII masking, an anti-fraud Vision engine, and multi-dialect Voice Accessibility.
+## 🌟 Vision & Valeur Ajoutée (Bonus GenAI)
+Plutôt que de simplement renvoyer une prédiction mathématique brute (ex: "Pack 3"), notre solution intègre **NVIDIA LLaMA-70B** pour transformer la décision du modèle ML en un argumentaire commercial chaleureux, personnalisé et **en dialecte tunisien (Tounsi)**. 
+Cette surcouche d'IA Générative permet aux courtiers OLEA de proposer instantanément des explications claires et convaincantes, adaptées à la culture locale.
 
-## ✨ Core Business Features
-**🌍 Hyper-Localized NLP & "Jailbroken" Dialect:** Imani fluently communicates in Tunisian Arabic (Tounsi), Algerian (Dziri), and Moroccan (Darija). We implemented custom Prompt Engineering and Context Injection to bypass standard LLM guardrails, forcing the AI to use authentic local vocabulary (e.g., Karhba, Parchoc) instead of standard French.
+---
 
-**🎙️ Smart Voice Accessibility (STT/TTS):** Built for total financial inclusion. Features a custom STT Interceptor that catches and corrects MSA (Modern Standard Arabic) mis-transcriptions into local dialects (e.g., correcting Kahraba to Karhba). Audio responses are dynamically routed: Imani only speaks out loud if the user initiated the conversation via voice.
+## 🏗️ Architecture MLOps & Déploiement
 
-**📸 Anti-Fraud Vision AI (NVIDIA NIM):** Users upload crash photos directly in the UI. The system features a Double-Gate Vision Pipeline:
-- **Watermark Trap:** Simulates C2PA/SynthID metadata scanning to instantly catch and flag AI-generated deepfakes.
-- **NVIDIA 90B Vision API:** Authentic photos are securely encoded in Base64 and sent to `meta/llama-3.2-90b-vision-instruct` via NVIDIA's enterprise endpoints for a granular, automated financial loss estimation.
+Notre système est divisé en microservices (API Backend + UI Frontend) pour garantir scalabilité, modularité et isolation. 
 
-**🧠 RAG-Powered Knowledge:** Powered by LangChain, ChromaDB, and Llama-3.1-70b-instruct, Imani reads actual OLEA policy PDFs to answer complex insurance queries with zero hallucinations.
+### 1. API d'Inférence Sécurisée (FastAPI) `security_api.py`
+Le moteur de notre application. L'API charge en mémoire le modèle Scikit-Learn (provenant de la Phase I) et expose les endpoints :
+*   **Validation Stricte (Pydantic) :** Les données entrantes sont systématiquement filtrées pour empêcher les injections SQL et garantir l'intégrité des types.
+*   **Sécurité Zero-Trust :** Intègre la vérification JWT, le Rate Limiting anti-DDoS, une politique CORS stricte et le masquage des informations PII (Identity Numbers) dans les logs d'audit.
+*   **Endpoint `/api/ml_predict` :** Aligné *au pixel près* avec le code de la Phase I pour éliminer tout *Training-Serving Skew*.
 
-**📱 WhatsApp-Native UX & Live Demoing:** The Streamlit frontend is custom-styled to mimic WhatsApp Web, featuring official OLEA branding and a Live QR Code integration, allowing stakeholders to seamlessly scan the screen and test the app on their own mobile devices.
+### 2. Interface Utilisateur (Streamlit) `app.py`
+Le portail interactif destiné aux courtiers ou clients OLEA.
+*   **Devis Rapide ML :** Saisie dynamique des informations client pour obtenir instantanément la recommandation de Pack assécurologique et l'argumentaire Tounsi de notre agent virtuel *Imani*.
+*   **Reconnaissance Vocale (Whisper/Google STT) :** Avec un intercepteur de vocabulaire spécifique à l'assurance tunisienne (ex: correction automatique de "kahraba" en "karhba").
 
-## 🔐 DevSecOps & Architecture
-Imani operates within a "Privacy-by-Design" architecture. We abandoned monolithic structures for a True Decoupled Microservice approach, splitting the app into two isolated Docker containers (`frontend-agent` and `secure-api`).
+### 3. Conteneurisation (Docker & Compose)
+L'application entière est encapsulée via **Docker**. Le fichier `docker-compose.yml` déploie les deux services au sein d'un réseau interne (`olea_network`) isolé de l'extérieur.
 
-### The Microservice Advantage:
-- **Zero-Latency UI:** The Streamlit frontend contains zero Heavy AI logic or PyTorch imports. It boots in milliseconds and acts purely as a lightweight REST client, communicating with the backend via JSON over internal Docker networks.
-- **Silent AI Booting:** The heavy ML models and RAG pipelines are isolated in the FastAPI Gateway, remaining silently alive in the background via Uvicorn.
+---
 
-### The Invisible Firewall:
-- **Zero-Trust JWT Cryptography:** The AI Agent mathematically signs a dynamic JSON Web Token (JWT) that self-destructs every 60 seconds, preventing network interception.
-- **Identity-Based Anti-DDoS:** Defeats IP spoofing. The rate limiter tracks the cryptographic User ID, dropping spam requests (max 1 claim per 5 seconds).
-- **PII Masking (GDPR):** Sensitive info (e.g., USER123) is instantly masked (U***123) before touching system logs.
-- **Immutable Audit Logging (SOC2):** Blocked attacks and approved claims are written to an immutable `audit.log`.
+## 🚀 Comment Lancer l'Application (En 1 Commande)
 
-## 🛠️ Tech Stack
-- **AI & NLP:** NVIDIA NIM Endpoints (Llama-3.1-70b-instruct, Llama-3.2-90b-vision-instruct), LangChain, HuggingFace Embeddings.
-- **Voice & Vision:** Google SpeechRecognition, gTTS, zero-trust Base64 memory encoding.
-- **Backend Gateway:** FastAPI, Pydantic, PyJWT, Python `requests`.
-- **Frontend:** Streamlit, `audio-recorder-streamlit`.
-- **Infrastructure:** Docker, Docker Compose, Host-Network bypasses, Ngrok Public Tunneling.
+Grâce à Docker Compose, le déploiement sur n'importe quel serveur ou machine locale est immédiat.
 
-## 🚀 Installation & Deployment
+### Prérequis
+- [Docker](https://www.docker.com/) et [Docker Compose](https://docs.docker.com/compose/)
+- Une clé API NVIDIA (pour le LLaMA-70B)
 
-### Prerequisites
-- Docker Desktop installed and running.
-- An NVIDIA API Key.
-- Ngrok (for public mobile demoing).
+### Étapes d'installation
 
-### 1. Environment Setup
-Create a `.env` file in the root directory and add your API key:
-```env
-NVIDIA_API_KEY=your_nvidia_api_key_here
-```
-Ensure your project contains a populated `insurance_data` folder with your relevant OLEA PDF documents.
+1. **Cloner le dépôt :**
+   ```bash
+   git clone https://github.com/votre-utilisateur/olea-ai-hackathon.git
+   cd olea-ai-hackathon
+   ```
 
-### 2. The Clean Build (Lightning Fast)
-The project includes a highly optimized `.dockerignore` file and a `requirements.txt` that forces the CPU-only version of PyTorch.
+2. **Configurer l'environnement :**
+   Créez un fichier `.env` à la racine (ou exportez la variable) avec votre clé API :
+   ```bash
+   NVIDIA_API_KEY="votre_cle_api_nvidia_ici"
+   ```
 
-Open your terminal in the project folder and run:
-```bash
-docker-compose up --build
-```
-*Note: The `docker-compose.yml` explicitly maps ports `8000:8000` (FastAPI) and `8501:8501` (Streamlit) to bypass Windows WSL2 bridge network limitations.*
+3. **Lancer les conteneurs :**
+   ```bash
+   docker-compose up --build -d
+   ```
 
-### 3. Usage & Public Mobile Tunnel
-Once the containers spin up, you can access the app locally at http://localhost:8501.
+4. **Accéder à l'application :**
+   - **Interface Utilisateur (Streamlit) :** Rendez-vous sur [http://localhost:8501](http://localhost:8501)
+   - **Documentation de l'API (Swagger UI) :** Rendez-vous sur [http://localhost:8000/docs](http://localhost:8000/docs)
 
-**To deploy publicly for Judges/Stakeholders:**
-Open a new terminal and run Ngrok, forcing the IPv4 loopback to bypass Windows Docker IPv6 errors:
+---
 
-```bash
-ngrok http 127.0.0.1:8501
-```
+## 🛡️ Focus sur la Sécurité (Zero-Trust)
+Nous n'avons pas codé pour un simple hackathon, nous avons codé pour une vraie entreprise. Notre conception intègre :
+1. **Rate Limiting :** Bloque automatiquement les requêtes abusives (spam) basées sur l'identité (User ID masqué).
+2. **PII Masking :** Les identifiants sensibles n'apparaissent jamais en clair dans l'immouvable `audit.log` (SOC2 compliance approach).
+3. **Internal Networking :** Le backend n'expose aucun port au public si déployé derrière un reverse-proxy, le frontend communique avec lui via le réseau privé Docker `olea_network`.
 
-- Copy the generated `https://...ngrok-free.app` link.
-- Generate a QR Code for this link and present it to the judges.
-- Test Voice (STT) on your mobile device.
-- Upload `fake_crash.jpg` to trigger the AI-Deepfake fraud trap, then upload a real crash photo to see NVIDIA's automated loss estimation in action!
+## 📦 Reproduction de la Phase I
+Le dossier contient également `solution.py` et `model.pkl` (le modèle de la Phase I). Le `requirements.txt` originel est préservé à vide pour respecter la sandbox EvalDA, tandis que les dépendances opérationnelles de la Phase II sont gérées isolément via `requirements_api.txt` et `requirements_ui.txt`.

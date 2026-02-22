@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+pydantic
+PyJWT
+pandas==2.1.4
+numpy==1.26.4
+scikit-learn==1.3.2
+requests
+joblib
+langchain
+langchain-nvidia-ai-endpoints
+langchain-community
+chromadb
+sentence-transformers
+python-dotenv
+pypdf

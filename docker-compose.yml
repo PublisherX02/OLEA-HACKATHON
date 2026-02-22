@@ -1,25 +1,36 @@
 version: '3.8'
+
 services:
-  secure-api:
+  api:
     build:
       context: .
       dockerfile: Dockerfile.api
+    container_name: olea_backend_api
     ports:
       - "8000:8000"
     environment:
       - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+    networks:
+      - olea_network
+    volumes:
+      - ./audit.log:/app/audit.log
+    restart: unless-stopped
 
-  frontend-agent:
+  frontend:
     build:
       context: .
-      dockerfile: Dockerfile.app
+      dockerfile: Dockerfile.ui
+    container_name: olea_streamlit_ui
     ports:
       - "8501:8501"
-    volumes:
-      - ./app.py:/app/app.py
     environment:
-      # Tell the agent to talk to the Docker API container via Windows internal boundary
-      - API_URL=http://host.docker.internal:8000/api/secure_claim
-      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+      - API_URL=http://api:8000
     depends_on:
-      - secure-api
+      - api
+    networks:
+      - olea_network
+    restart: unless-stopped
+
+networks:
+  olea_network:
+    driver: bridge

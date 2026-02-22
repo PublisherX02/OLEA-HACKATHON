@@ -7,6 +7,18 @@ from datetime import datetime
 import time
 import logging
 import sys
+import os
+import joblib
+import pandas as pd
+import requests
+
+try:
+    from solution import load_model, preprocess, predict
+    ml_model = load_model()
+    print("✅ Successfully loaded model and functions from solution.py")
+except Exception as e:
+    ml_model = None
+    print(f"Warning: solution.py or model.pkl failed to load. ML endpoint will not work. Error: {e}")
 
 # --- 1. IMMUTABLE AUDIT LOGGING (SOC2 Compliance) ---
 # This saves every security event to an 'audit.log' file AND prints it to the terminal
@@ -142,6 +154,103 @@ async def vision_endpoint(request: VisionRESTRequest):
         return {"response": assessment}
     except Exception as e:
         logger.error(f"Vision API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ClientProfile(BaseModel):
+    # Core Streamlit inputs
+    Estimated_Annual_Income: float = 30000.0
+    Adult_Dependents: int = 1
+    Child_Dependents: float = 0.0
+    Vehicles_on_Policy: int = 1
+    Previous_Claims_Filed: int = 0
+    Years_Without_Claims: int = 0
+    Employment_Status: str = "Employed_FullTime"
+    Region_Code: str = "TUN"
+    
+    # Required background columns for LightGBM with safe defaults
+    Policy_Cancelled_Post_Purchase: int = 0
+    Policy_Start_Year: int = 2026
+    Policy_Start_Week: int = 1
+    Policy_Start_Day: int = 1
+    Grace_Period_Extensions: int = 0
+    Previous_Policy_Duration_Months: int = 12
+    Infant_Dependents: int = 0
+    Existing_Policyholder: int = 0
+    Policy_Amendments_Count: int = 0
+    Broker_ID: float = 9.0
+    Employer_ID: float = 0.0
+    Underwriting_Processing_Days: int = 0
+    Custom_Riders_Requested: int = 0
+    Broker_Agency_Type: str = "Direct_Website"
+    Deductible_Tier: str = "Tier_2_Mid_Ded"
+    Acquisition_Channel: str = "Direct_Website"
+    Payment_Schedule: str = "Monthly_EFT"
+    Days_Since_Quote: int = 1
+    Policy_Start_Month: str = "January"
+    
+    # Passing context for the LLM explicitly, but excluding it from ML features
+    client_name: str = "Client"
+
+@app.post("/api/ml_predict")
+async def ml_predict_endpoint(profile: ClientProfile):
+    """Predicts insurance bundle and augments explanation via LLaMA."""
+    if ml_model is None:
+        raise HTTPException(status_code=503, detail="ML Model not loaded.")
+        
+    try:
+        # 1. Convert to DataFrame (dropping the non-ML feature 'client_name')
+        profile_dict = profile.dict()
+        client_name = profile_dict.pop("client_name")
+        
+        # Add a dummy User_ID required by solution.py's predict function
+        profile_dict["User_ID"] = "USR_API_0001"
+        
+        df = pd.DataFrame([profile_dict])
+        
+        # 2. Run Inference using the exact solution.py logic (Zero Training-Serving Skew)
+        start_ml = time.time()
+        df_processed = preprocess(df)
+        predictions_df = predict(df_processed, ml_model)
+        prediction = predictions_df['Purchased_Coverage_Bundle'].iloc[0]
+        ml_latency = time.time() - start_ml
+        
+        # 3. Call NVIDIA LLaMA 70B for the "Augmented" response
+        NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY")
+        if not NVIDIA_API_KEY:
+            raise ValueError("Missing NVIDIA_API_KEY in environment.")
+            
+        headers = {
+            "Authorization": f"Bearer {NVIDIA_API_KEY}",
+            "Accept": "application/json"
+        }
+        
+        prompt = f"""Tu es Imani, l'agent commercial de OLEA Tunisie.
+        Notre modèle ML haute précision vient de recommander le "Pack Assurance Numéro {prediction}" pour le client {client_name}.
+        Profil du client : {profile.Estimated_Annual_Income} TND de revenus, {profile.Adult_Dependents + profile.Child_Dependents} dépendants, {profile.Vehicles_on_Policy} véhicules sportifs/normaux, et {profile.Previous_Claims_Filed} sinistres récents.
+        
+        Tâche : Explique de façon très enthousiaste en dialecte Tunisien (Tounsi avec alphabet latin) pourquoi ce Pack (Bundle {prediction}) est PARFAITEMENT adapté à sa situation spécifique de manière personnalisée.
+        Sois chaleureuse, convaincante et TRÈS brève (maximum 3 phrases). Ne mentionne pas le modèle ML, dis simplement "choisi pour toi".
+        """
+        
+        payload = {
+            "model": "meta/llama-3.1-70b-instruct",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 150,
+            "temperature": 0.4
+        }
+        
+        res = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", headers=headers, json=payload, timeout=60)
+        res.raise_for_status()
+        imani_explanation = res.json()["choices"][0]["message"]["content"]
+        
+        return {
+            "predicted_bundle": int(prediction),
+            "imani_explanation": imani_explanation,
+            "ml_latency_sec": ml_latency
+        }
+        
+    except Exception as e:
+        logger.error(f"ML Predict API Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

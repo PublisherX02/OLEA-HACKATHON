@@ -4,6 +4,9 @@ from gtts import gTTS
 import io
 import base64
 import requests
+import os
+
+API_BASE_URL = os.environ.get("API_URL", "http://localhost:8000")
 
 # --- VOICE ENGINE HELPER FUNCTIONS ---
 def text_to_audio_autoplay(text, lang='ar'):
@@ -132,6 +135,20 @@ with st.sidebar:
     # Feature 1: Vision AI
     st.write("📸 **Upload Crash Photo:**")
     uploaded_file = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+    
+    st.divider()
+    
+    # Feature 3: Phase II - ML Quick Quote Form
+    st.header("⚡ Devis Rapide (ML)")
+    with st.expander("📝 Remplir le profil client", expanded=False):
+        client_name = st.text_input("Prénom du client:", value="Ahmed")
+        est_income = st.number_input("Revenu Annuel Estimé (TND):", min_value=0.0, value=35000.0, step=1000.0)
+        adult_dep = st.number_input("Dépendants Adultes:", min_value=0, value=1, step=1)
+        child_dep = st.number_input("Enfants à charge:", min_value=0, value=2, step=1)
+        vehicles = st.number_input("Véhicules sur la police:", min_value=1, value=1, step=1)
+        prev_claims = st.number_input("Sinistres précédents:", min_value=0, max_value=10, value=0, step=1)
+        
+        ml_submit = st.button("🚀 Générer la recommandation IA")
 
 # --- MAIN CHAT AREA ---
 if "messages" not in st.session_state:
@@ -155,8 +172,8 @@ if uploaded_file:
                 base64_img = base64.b64encode(uploaded_file.getvalue()).decode("utf-8")
                 payload = {"base64_img": base64_img, "language": selected_language, "filename": uploaded_file.name}
                 
-                # Use host.docker.internal for Windows Host Networking Fallback
-                response = requests.post("http://host.docker.internal:8000/api/vision", json=payload, timeout=60)
+                # Use dynamic API base URL
+                response = requests.post(f"{API_BASE_URL}/api/vision", json=payload, timeout=60)
                 response.raise_for_status()
                 assessment = response.json().get("response", "Analysis failed.")
                 
@@ -171,6 +188,47 @@ if uploaded_file:
                 
             except Exception as e:
                 st.sidebar.error(f"❌ API Error: {str(e)}")
+
+# --- PROCESS ML PREDICT (PHASE II) ---
+if ml_submit:
+    with st.spinner(f"Analyse Machine Learning en cours pour {client_name}..."):
+        try:
+            payload = {
+                "Estimated_Annual_Income": est_income,
+                "Adult_Dependents": adult_dep,
+                "Child_Dependents": float(child_dep),
+                "Vehicles_on_Policy": vehicles,
+                "Previous_Claims_Filed": prev_claims,
+                "client_name": client_name
+            }
+            
+            # Request to the new FastAPI ML Endpoint
+            response = requests.post(f"{API_BASE_URL}/api/ml_predict", json=payload, timeout=60)
+            response.raise_for_status()
+            ml_data = response.json()
+            
+            bundle_id = ml_data.get("predicted_bundle", "N/A")
+            explication = ml_data.get("imani_explanation", "Erreur de génération.")
+            latency = ml_data.get("ml_latency_sec", 0.0)
+            
+            # Format UI Output
+            ml_assessment = f"""🎯 **[Recommandation IA - ML Model]**
+*   **Temps d'inférence :** `{latency:.4f} secondes` (LightGBM)
+*   **Pack Suggéré :** `Bundle {bundle_id}`
+
+🤖 **Imani :**
+{explication}"""
+
+            # Render silently
+            with st.chat_message("assistant", avatar=olea_avatar):
+                st.markdown(ml_assessment)
+            
+            st.session_state.messages.append({"role": "assistant", "content": ml_assessment})
+            
+        except requests.exceptions.RequestException as e:
+            st.sidebar.error("❌ Erreur de connexion avec l'API /api/ml_predict. L'API est-elle démarrée ?")
+        except Exception as e:
+            st.sidebar.error(f"❌ Erreur: {str(e)}")
 
 # --- PROCESS INPUTS ---
 prompt = None
@@ -203,8 +261,8 @@ if prompt:
         try:
             payload = {"message": prompt, "language": selected_language}
             
-            # Send to FastAPI Backend using Windows Host Networking Fallback
-            response = requests.post("http://host.docker.internal:8000/api/chat", json=payload, timeout=60)
+            # Send to FastAPI Backend
+            response = requests.post(f"{API_BASE_URL}/api/chat", json=payload, timeout=60)
             response.raise_for_status()
             bot_response = response.json().get("response", "No response generated.")
             

@@ -31,7 +31,7 @@ class InssuranceChatbotConfig:
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     chunk_size: int = 1000
     chunk_overlap: int = 200
-    temperature: float = 0.2
+    temperature: float = 0.4
     max_tokens: int = 1024
     k_documents: int = 4
 
@@ -179,16 +179,18 @@ tools = insurance_tools
 
 
 agent_prompt_template = """
-You are 'Imani', a trusted insurance guide for the North African market. 
-🌍 DIALECT RULES (STRICT STRICT STRICT):
-You must answer the user's question strictly in this language/dialect: {language}.
+Tu es Imani, l'assistante experte en assurance de OLEA Tunisie.
+RÈGLES ABSOLUES DE COMMUNICATION :
+1. Tu dois répondre EXCLUSIVEMENT en dialecte tunisien (Tounsi) écrit en alphabet latin (Franco-Arabe). (Language demandé: {language})
+2. INTERDICTION formelle d'utiliser du Marocain (pas de "hadchi", "diali", "wakha").
+3. INTERDICTION d'utiliser de l'arabe classique (MSA) ou du français formel.
+4. Ne répète jamais bêtement les mots du client.
 
-If 'Tunisian Arabic (Tounsi)', strictly use words like 'mta3' (never dyal), 'chnowa', 'kifech', 'behi', 'karhba', 'y3aychek'. DO NOT use Moroccan words.
+Exemple de comportement attendu : 
+Si le client dit "3malt accident", tu réponds : "Lotf 3lik ! Nchallah labes. Kifech najem n3awnek ? Ab3athli taswira mta3 el karhba bch nchouf el dégâts."
 
-If 'Moroccan (Darija)', use 'dyal', 'zaf', 'wakha'.
-
-If 'Algerian (Dziri)', use 'wesh', 'bzaf', 'draham'.
-Keep the tone empathetic and local. Base your answers on this context: {context}.
+Sois naturelle, empathique, et très brève (1 à 2 phrases maximum).
+Base tes réponses exclusivement sur ce contexte d'assurance : {context}.
 
 🛡️ SECURITY AWARENESS (SELF-KNOWLEDGE):
 You are highly self-aware of your own enterprise-grade security architecture. If a user threatens to hack you, asks about bypassing rate limits, or mentions using tools like "Proxychains", "VPNs", or "IP spoofing", you must confidently and politely explain that it will fail.
@@ -399,11 +401,15 @@ def analyze_damage_image(base64_img: str, language: str, filename="unknown.jpg")
         
         # ÉTAPE 1 : LE CERVEAU VISUEL (90B Vision) - Froid, factuel, standard
         url_vision = "https://integrate.api.nvidia.com/v1/chat/completions"
-        prompt_vision = """Analyse cette photo de voiture. 
-        1. Liste exactement les parties endommagées que tu vois.
+        # 🛡️ NOUVEAU PROMPT : On lui donne le droit de dire que ce n'est pas une voiture
+        prompt_vision = """Analyse cette photo. 
+        ATTENTION : Vérifie d'abord s'il y a une voiture dans l'image.
+        Si l'image ne contient PAS de voiture (ex: un bâtiment, un paysage, une personne, un campus), réponds EXACTEMENT ET UNIQUEMENT avec ce mot : ERREUR_PAS_DE_VOITURE.
+        
+        S'il y a bien une voiture : 
+        1. Liste les parties endommagées.
         2. Dis si c'est réparable ou non.
-        3. Tu DOIS donner une estimation financière approximative des réparations en TND (ex: 450, 1500, 3000). Interdiction absolue de dire que c'est impossible ou difficile.
-        Sois très bref, factuel et réponds en français standard."""
+        3. Donne obligatoirement une estimation en TND (ex: 450, 1500)."""
         
         payload_vision = {
             "model": "meta/llama-3.2-90b-vision-instruct",
@@ -417,6 +423,10 @@ def analyze_damage_image(base64_img: str, language: str, filename="unknown.jpg")
             res_vision = requests.post(url_vision, headers=headers, json=payload_vision, timeout=60)
             res_vision.raise_for_status()
             rapport_technique = res_vision.json()["choices"][0]["message"]["content"]
+            
+            # 🛑 LE FILTRE MAGIQUE : Si le modèle crie "ERREUR", on coupe tout !
+            if "ERREUR_PAS_DE_VOITURE" in rapport_technique:
+                return "🤖 **[Imani]** : Ya m3alem, hethi mouch karhba ! 🏢 Na7na chariket assurance mta3 kraheb, ab3athli taswira fiha karhba madhrouba brabi ! 😂"
             
             # ÉTAPE 2 : LE CERVEAU LINGUISTIQUE BRIDÉ PAR PYDANTIC
             url_text = "https://integrate.api.nvidia.com/v1/chat/completions"
